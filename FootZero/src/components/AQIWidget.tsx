@@ -7,30 +7,36 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-interface AQIData {
+const OWM_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
+
+interface WeatherAQIData {
   aqi: number;
-  station: string;
-  dominentpol?: string;
-  iaqi?: Record<string, { v: number }>;
-  time?: { s: string };
+  aqiLabel: string;
+  city: string;
+  temp: number;
+  description: string;
+  humidity: number;
+  windSpeed: number;
+  pm25?: number;
+  pm10?: number;
+  no2?: number;
+  o3?: number;
 }
 
 const AQI_LEVELS = [
-  { max: 50, label: "Good", color: "bg-green-500", textColor: "text-green-400", description: "Air quality is satisfactory." },
-  { max: 100, label: "Moderate", color: "bg-yellow-500", textColor: "text-yellow-400", description: "Acceptable air quality." },
-  { max: 150, label: "Unhealthy (Sensitive)", color: "bg-orange-500", textColor: "text-orange-400", description: "Sensitive groups may be affected." },
-  { max: 200, label: "Unhealthy", color: "bg-red-500", textColor: "text-red-400", description: "Everyone may experience effects." },
-  { max: 300, label: "Very Unhealthy", color: "bg-purple-500", textColor: "text-purple-400", description: "Health alert: serious effects." },
-  { max: Infinity, label: "Hazardous", color: "bg-rose-900", textColor: "text-rose-400", description: "Emergency conditions." },
+  { max: 1, label: "Good",      color: "bg-green-500",  textColor: "text-green-400",  description: "Air quality is satisfactory." },
+  { max: 2, label: "Fair",      color: "bg-yellow-500", textColor: "text-yellow-400", description: "Acceptable air quality." },
+  { max: 3, label: "Moderate",  color: "bg-orange-500", textColor: "text-orange-400", description: "Sensitive groups may be affected." },
+  { max: 4, label: "Poor",      color: "bg-red-500",    textColor: "text-red-400",    description: "Everyone may experience effects." },
+  { max: 5, label: "Very Poor", color: "bg-purple-500", textColor: "text-purple-400", description: "Health alert: serious effects." },
 ];
 
-const getAQILevel = (aqi: number) => AQI_LEVELS.find((l) => aqi <= l.max) || AQI_LEVELS[5];
-
-const WAQI_TOKEN = "demo";
+const getAQILevel = (aqi: number) =>
+  AQI_LEVELS.find((l) => aqi <= l.max) || AQI_LEVELS[4];
 
 export const AQIWidget = () => {
   const { user, profile, refreshProfile } = useAuth();
-  const [aqiData, setAqiData] = useState<AQIData | null>(null);
+  const [data, setData] = useState<WeatherAQIData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchCity, setSearchCity] = useState("");
@@ -40,47 +46,73 @@ export const AQIWidget = () => {
 
   const homeCity = profile?.city || "Kathmandu";
 
-  const fetchAQI = async (city: string) => {
+  const fetchWeatherAndAQI = async (city: string) => {
     if (!city.trim()) return;
     setLoading(true);
     setError(null);
+
     try {
-      const res = await fetch(`https://api.waqi.info/feed/${encodeURIComponent(city)}/?token=${WAQI_TOKEN}`);
-      const json = await res.json();
-      if (json.status === "ok" && json.data) {
-        setAqiData({
-          aqi: json.data.aqi,
-          station: json.data.city?.name || city,
-          dominentpol: json.data.dominentpol,
-          iaqi: json.data.iaqi,
-          time: json.data.time,
-        });
-        setCurrentCity(city);
-      } else {
+      // Step 1 — Get weather + coordinates
+      const weatherRes = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${OWM_KEY}&units=metric`
+      );
+      const weatherJson = await weatherRes.json();
+
+      if (weatherJson.cod !== 200) {
         setError("City not found. Try another name.");
-        setAqiData(null);
+        setData(null);
+        setLoading(false);
+        return;
       }
+
+      const lat = weatherJson.coord.lat;
+      const lon = weatherJson.coord.lon;
+
+      // Step 2 — Get AQI using coordinates
+      const aqiRes = await fetch(
+        `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OWM_KEY}`
+      );
+      const aqiJson = await aqiRes.json();
+
+      const aqiValue = aqiJson?.list?.[0]?.main?.aqi || 1;
+      const components = aqiJson?.list?.[0]?.components || {};
+
+      setData({
+        aqi: aqiValue,
+        aqiLabel: getAQILevel(aqiValue).label,
+        city: weatherJson.name + ", " + weatherJson.sys.country,
+        temp: Math.round(weatherJson.main.temp),
+        description: weatherJson.weather[0].description,
+        humidity: weatherJson.main.humidity,
+        windSpeed: weatherJson.wind.speed,
+        pm25: components.pm2_5,
+        pm10: components.pm10,
+        no2: components.no2,
+        o3: components.o3,
+      });
+
+      setCurrentCity(weatherJson.name);
     } catch {
-      setError("Failed to fetch AQI data.");
+      setError("Failed to fetch weather data. Check your API key.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAQI(homeCity);
+    fetchWeatherAndAQI(homeCity);
   }, [profile?.city]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchCity.trim()) {
-      fetchAQI(searchCity.trim());
+      fetchWeatherAndAQI(searchCity.trim());
       setIsSearched(true);
     }
   };
 
   const handleBackToHome = () => {
-    fetchAQI(homeCity);
+    fetchWeatherAndAQI(homeCity);
     setSearchCity("");
     setIsSearched(false);
   };
@@ -102,7 +134,7 @@ export const AQIWidget = () => {
     setSettingLocation(false);
   };
 
-  const level = aqiData ? getAQILevel(aqiData.aqi) : null;
+  const level = data ? getAQILevel(data.aqi) : null;
 
   return (
     <motion.div
@@ -110,24 +142,24 @@ export const AQIWidget = () => {
       animate={{ opacity: 1, y: 0 }}
       className="bg-card rounded-2xl p-5 border border-border col-span-1 md:col-span-2 lg:col-span-3"
     >
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <Wind className="h-4.5 w-4.5 text-primary" />
           </div>
           <div>
-            <h3 className="text-foreground font-semibold text-sm">Live Air Quality Index</h3>
-            {aqiData && (
+            <h3 className="text-foreground font-semibold text-sm">Live Weather & Air Quality</h3>
+            {data && (
               <p className="text-muted-foreground text-xs flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {aqiData.station}
-                {isSearched && (
-                  <span className="text-primary/60 ml-1">· Searching</span>
-                )}
+                {data.city}
+                {isSearched && <span className="text-primary/60 ml-1">· Searching</span>}
               </p>
             )}
           </div>
         </div>
+
         <div className="flex gap-2 w-full sm:w-auto">
           {isSearched && (
             <Button
@@ -155,71 +187,96 @@ export const AQIWidget = () => {
         </div>
       </div>
 
+      {/* Content */}
       <AnimatePresence mode="wait">
-        {loading && !aqiData ? (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-center py-8">
+        {loading && !data ? (
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </motion.div>
         ) : error ? (
-          <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm">
+          <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm">
             <AlertTriangle className="h-4 w-4" />
             {error}
           </motion.div>
-        ) : aqiData && level ? (
+        ) : data && level ? (
           <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
               {/* AQI Score */}
               <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-background/50 border border-border">
-                <span className={`text-4xl font-bold ${level.textColor}`}>{aqiData.aqi}</span>
+                <span className={`text-4xl font-bold ${level.textColor}`}>{data.aqi}</span>
                 <span className={`text-xs font-medium mt-1 px-2 py-0.5 rounded-full ${level.color} text-white`}>
                   {level.label}
                 </span>
                 <p className="text-muted-foreground text-[11px] mt-2 text-center">{level.description}</p>
               </div>
 
-              {/* Pollutant details */}
+              {/* Weather Info */}
               <div className="flex flex-col gap-2 p-4 rounded-xl bg-background/50 border border-border">
-                <span className="text-muted-foreground text-xs font-medium mb-1">Key Pollutants</span>
-                {aqiData.iaqi && Object.entries(aqiData.iaqi).slice(0, 4).map(([key, val]) => (
-                  <div key={key} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground uppercase">{key}</span>
-                    <span className="text-foreground font-medium">{val.v}</span>
+                <span className="text-muted-foreground text-xs font-medium mb-1">Weather</span>
+                <p className="text-foreground text-2xl font-bold">{data.temp}°C</p>
+                <p className="text-muted-foreground text-xs capitalize">{data.description}</p>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className="text-muted-foreground">Humidity</span>
+                  <span className="text-foreground font-medium">{data.humidity}%</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Wind</span>
+                  <span className="text-foreground font-medium">{data.windSpeed} m/s</span>
+                </div>
+              </div>
+
+              {/* Pollutants */}
+              <div className="flex flex-col gap-2 p-4 rounded-xl bg-background/50 border border-border">
+                <span className="text-muted-foreground text-xs font-medium mb-1">Key Pollutants (μg/m³)</span>
+                {data.pm25 !== undefined && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">PM2.5</span>
+                    <span className="text-foreground font-medium">{data.pm25.toFixed(1)}</span>
                   </div>
-                ))}
-                {aqiData.dominentpol && (
-                  <p className="text-[11px] text-muted-foreground mt-auto">
-                    Dominant: <span className="text-foreground">{aqiData.dominentpol.toUpperCase()}</span>
-                  </p>
+                )}
+                {data.pm10 !== undefined && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">PM10</span>
+                    <span className="text-foreground font-medium">{data.pm10.toFixed(1)}</span>
+                  </div>
+                )}
+                {data.no2 !== undefined && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">NO₂</span>
+                    <span className="text-foreground font-medium">{data.no2.toFixed(1)}</span>
+                  </div>
+                )}
+                {data.o3 !== undefined && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">O₃</span>
+                    <span className="text-foreground font-medium">{data.o3.toFixed(1)}</span>
+                  </div>
                 )}
               </div>
 
-              {/* Health Tips */}
-              <div className="flex flex-col gap-2 p-4 rounded-xl bg-background/50 border border-border sm:col-span-2">
-                <span className="text-muted-foreground text-xs font-medium">Health Recommendation</span>
-                {aqiData.aqi <= 50 ? (
+              {/* Health Recommendation */}
+              <div className="flex flex-col gap-2 p-4 rounded-xl bg-background/50 border border-border">
+                <span className="text-muted-foreground text-xs font-medium">Health Tip</span>
+                {data.aqi === 1 ? (
                   <p className="text-sm text-foreground">Great day to be outdoors! Air quality is excellent. 🌿</p>
-                ) : aqiData.aqi <= 100 ? (
-                  <p className="text-sm text-foreground">Air quality is acceptable. Sensitive individuals should limit prolonged outdoor exertion. 😊</p>
-                ) : aqiData.aqi <= 150 ? (
-                  <p className="text-sm text-foreground">Sensitive groups should reduce outdoor activity. Consider wearing a mask. 😷</p>
+                ) : data.aqi === 2 ? (
+                  <p className="text-sm text-foreground">Air quality is fair. Sensitive individuals should take care. 😊</p>
+                ) : data.aqi === 3 ? (
+                  <p className="text-sm text-foreground">Moderate air quality. Reduce prolonged outdoor activity. 😷</p>
+                ) : data.aqi === 4 ? (
+                  <p className="text-sm text-foreground">Poor air quality. Avoid outdoor exertion if possible. ⚠️</p>
                 ) : (
-                  <p className="text-sm text-foreground">Avoid outdoor activity. Keep windows closed and use air purifiers if possible. ⚠️</p>
-                )}
-                {aqiData.time?.s && (
-                  <p className="text-[11px] text-muted-foreground mt-auto">
-                    Last updated: {new Date(aqiData.time.s).toLocaleString()}
-                  </p>
+                  <p className="text-sm text-foreground">Very poor air. Stay indoors and keep windows closed. 🚨</p>
                 )}
               </div>
             </div>
 
-            {/* Set as my location button when viewing a different city */}
+            {/* Set as my location */}
             {isSearched && currentCity.toLowerCase() !== homeCity.toLowerCase() && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-3 flex justify-center"
-              >
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex justify-center">
                 <Button
                   size="sm"
                   variant="outline"
@@ -227,11 +284,7 @@ export const AQIWidget = () => {
                   onClick={handleSetAsMyLocation}
                   disabled={settingLocation}
                 >
-                  {settingLocation ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Navigation className="h-3.5 w-3.5" />
-                  )}
+                  {settingLocation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
                   Set as my location
                 </Button>
               </motion.div>
