@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "./components/Layout";
+
+// pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
@@ -44,10 +46,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Public routes */}
+
+            {/* PUBLIC ROUTES */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
@@ -57,10 +61,10 @@ const App = () => (
             <Route path="/legal" element={<Legal />} />
             <Route path="/privacy" element={<Privacy />} />
 
-            {/* Google OAuth callback — must be outside protected routes */}
+            {/* 🔥 OAuth callback (IMPORTANT) */}
             <Route path="/auth/callback" element={<AuthCallback />} />
 
-            {/* Protected user routes */}
+            {/* USER PROTECTED ROUTES */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/calculator" element={<CalculatorPage />} />
@@ -79,7 +83,7 @@ const App = () => (
               <Route path="/help" element={<Help />} />
             </Route>
 
-            {/* Protected admin routes */}
+            {/* ADMIN ROUTES */}
             <Route element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/reports" element={<AdminReports />} />
@@ -88,10 +92,13 @@ const App = () => (
               <Route path="/admin/resources" element={<AdminResources />} />
             </Route>
 
+            {/* 404 */}
             <Route path="*" element={<NotFound />} />
+
           </Routes>
         </AuthProvider>
       </BrowserRouter>
+
     </TooltipProvider>
   </QueryClientProvider>
 );
