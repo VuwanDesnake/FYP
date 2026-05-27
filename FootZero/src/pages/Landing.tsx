@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Target, Lightbulb, ArrowRight, Users, Globe, TrendingDown, ChevronRight, Star, Shield, Zap } from "lucide-react";
+import { BarChart3, Target, Lightbulb, ArrowRight, Globe, TrendingDown, ChevronRight, Shield, Leaf, Wind } from "lucide-react";
 import { motion } from "framer-motion";
 import { Logo } from "@/components/Logo";
 
@@ -11,10 +11,10 @@ const features = [
   { icon: Shield, title: "Earn Badges", desc: "Get rewarded for milestones like your first log, green weeks, and logging streaks." },
 ];
 
-const stats = [
-  { value: "12K+", label: "Active Users", icon: Users },
-  { value: "2.4M", label: "kg CO₂ Tracked", icon: Globe },
-  { value: "34%", label: "Avg Reduction", icon: TrendingDown },
+const facts = [
+  { value: "4 Categories", label: "Transport, Diet, Energy & Shopping", icon: Globe },
+  { value: "Real-Time AQI", label: "Live Air Quality for Your City", icon: Wind },
+  { value: "Free Forever", label: "No Credit Card Required", icon: TrendingDown },
 ];
 
 const steps = [
@@ -24,10 +24,27 @@ const steps = [
   { step: "04", title: "Reduce & Earn", desc: "Follow tips, hit goals, and earn badges as you go green." },
 ];
 
-const testimonials = [
-  { name: "Priya S.", role: "Student", text: "FootZero made me realize how much my daily commute contributes. I've cut my emissions by 40% in 3 months!", rating: 5 },
-  { name: "James L.", role: "Software Engineer", text: "The goal tracking and badge system keeps me motivated. It's like a fitness tracker but for the planet.", rating: 5 },
-  { name: "Amara K.", role: "Teacher", text: "I use this with my students to teach environmental awareness. The charts make it so easy to understand.", rating: 5 },
+const whyCards = [
+  {
+    icon: Leaf,
+    title: "Localised for Nepal",
+    desc: "Built with emission factors and defaults relevant to the Nepali lifestyle — not just Western markets.",
+  },
+  {
+    icon: Wind,
+    title: "Live Air Quality Data",
+    desc: "See real-time AQI and weather conditions for your city via the OpenWeatherMap API, directly on your dashboard.",
+  },
+  {
+    icon: Shield,
+    title: "Gamified Sustainability",
+    desc: "Earn badges, maintain streaks, and complete weekly challenges to stay motivated on your green journey.",
+  },
+  {
+    icon: BarChart3,
+    title: "Beautiful Analytics",
+    desc: "Interactive charts show your daily, weekly, and monthly emissions so you always know where you stand.",
+  },
 ];
 
 const fadeUp = {
@@ -69,13 +86,13 @@ const Landing = () => (
       </motion.div>
     </section>
 
-    {/* Stats Bar */}
+    {/* Facts Bar — real facts only */}
     <section className="border-y border-border bg-card/50 backdrop-blur-sm">
       <div className="max-w-5xl mx-auto px-6 md:px-8 py-10 grid grid-cols-3 gap-6">
-        {stats.map((s, i) => (
+        {facts.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="text-center">
             <s.icon className="h-5 w-5 text-primary mx-auto mb-2" />
-            <p className="text-foreground text-2xl md:text-3xl font-bold">{s.value}</p>
+            <p className="text-foreground text-xl md:text-2xl font-bold">{s.value}</p>
             <p className="text-muted-foreground text-sm">{s.label}</p>
           </motion.div>
         ))}
@@ -122,20 +139,22 @@ const Landing = () => (
       </div>
     </section>
 
-    {/* Testimonials */}
+    {/* Why FootZero — replaces fake testimonials */}
     <section className="px-6 md:px-8 py-20 md:py-28 max-w-6xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
-        <span className="text-primary text-sm font-semibold uppercase tracking-wider">Testimonials</span>
-        <h2 className="text-foreground text-3xl md:text-4xl font-bold mt-3">Loved by eco-conscious people</h2>
+        <span className="text-primary text-sm font-semibold uppercase tracking-wider">Why FootZero</span>
+        <h2 className="text-foreground text-3xl md:text-4xl font-bold mt-3">Built for real impact</h2>
+        <p className="text-muted-foreground mt-3 max-w-xl mx-auto">FootZero was designed from the ground up to make carbon tracking meaningful, accurate, and engaging.</p>
       </motion.div>
-      <div className="grid md:grid-cols-3 gap-6">
-        {testimonials.map((t, i) => (
-          <motion.div key={t.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="glass-card rounded-2xl p-7">
-            <div className="flex gap-0.5 mb-4">{Array.from({ length: t.rating }).map((_, j) => <Star key={j} className="h-4 w-4 fill-primary text-primary" />)}</div>
-            <p className="text-foreground text-sm leading-relaxed mb-5">"{t.text}"</p>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm">{t.name.charAt(0)}</div>
-              <div><p className="text-foreground font-medium text-sm">{t.name}</p><p className="text-muted-foreground text-xs">{t.role}</p></div>
+      <div className="grid md:grid-cols-2 gap-6">
+        {whyCards.map((card, i) => (
+          <motion.div key={card.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="glass-card rounded-2xl p-7 flex gap-5 hover:border-primary/30 transition-all duration-300">
+            <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <card.icon className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-foreground font-semibold text-lg mb-2">{card.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{card.desc}</p>
             </div>
           </motion.div>
         ))}
@@ -149,7 +168,7 @@ const Landing = () => (
         <div className="relative z-10">
           <Logo size="xl" showText={false} className="justify-center mb-5" />
           <h2 className="text-foreground text-3xl md:text-4xl font-bold mb-4">Ready to reduce your footprint?</h2>
-          <p className="text-muted-foreground mb-8 max-w-md mx-auto">Join thousands of people making a real difference. It's free to start.</p>
+          <p className="text-muted-foreground mb-8 max-w-md mx-auto">Start tracking your carbon footprint today. It's free, no credit card required.</p>
           <Link to="/signup"><Button variant="hero" size="lg" className="text-lg px-10 py-6 rounded-xl">Start Tracking Now <ArrowRight className="ml-2 h-5 w-5" /></Button></Link>
         </div>
       </motion.div>
@@ -181,7 +200,7 @@ const Landing = () => (
         <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-muted-foreground text-sm">© 2026 FootZero. All rights reserved.</span>
           <div className="flex items-center gap-1 text-muted-foreground text-sm">
-            <Logo size="sm" showText={false} className="mr-1" /> For a greener planet
+            <Logo size="sm" showText={false} className="mr-1" /> For a greener planet 🌍
           </div>
         </div>
       </div>
